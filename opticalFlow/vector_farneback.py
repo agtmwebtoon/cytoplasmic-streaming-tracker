@@ -3,22 +3,32 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 first_flag = True
+roi_flag = True
+length = 0
 
 
-def drawFlow(img, flow, step=2):
-    h, w = img.shape[:2]
+def drawFlow(img, flow, step=2, filtering=False):
+    global min_dist
+    h, w = flow.shape[:2]
 
     idx_y, idx_x = np.mgrid[step/2:h:step, step/2:w:step].astype(int)
     indicies = np.stack((idx_x, idx_y), axis=-1).reshape(-1, 2)
 
-    min_dist = find_optical_distance(flow, 90, 512)
+    if filtering:
+        min_dist = find_optical_distance(flow, 90, h)
 
-    print(min_dist)
     for x, y in indicies:
         dx, dy = flow[y, x].astype(int)
-        if np.sqrt(dx ** 2 + dy ** 2) > min_dist:
+        if filtering and np.sqrt(dx ** 2 + dy ** 2) > min_dist:
+            print(min_dist)
+            #x += center_of_roi[0] // 2
+            #y += center_of_roi[1] // 2
             cv2.circle(img, (x, y), 1, (0, 255, 0), -1)
-            cv2.arrowedLine(img, (x, y), (x + dx, y + dy), (0, 255, 0), 2, cv2.LINE_AA)
+            cv2.arrowedLine(img, (x, y), (x + dx, y + dy), (0, 255, 0), 1, cv2.LINE_AA)
+
+        elif filtering is False:
+            cv2.circle(img, (x, y), 1, (0, 255, 0), -1)
+            cv2.arrowedLine(img, (x, y), (x + dx, y + dy), (0, 255, 0), 1, cv2.LINE_AA)
 
 def find_optical_distance(pixel_dist, percent, pixel_size):
     global first_flag
@@ -38,41 +48,57 @@ def find_optical_distance(pixel_dist, percent, pixel_size):
 
 prev = None
 
-cap = cv2.VideoCapture('../dataset/50fps_CM334_18_sample2 (5)_low_activity.avi')
+cap = cv2.VideoCapture('../dataset/IT261516_25_50fps_binning2_sample2(1).avi')
 fps = cap.get(cv2.CAP_PROP_FPS)
 delay = int(1000/fps)
+roi = [0, 0, 0, 0]
+center_of_roi = [0, 0]
 
 while cap.isOpened():
     ret, frame = cap.read()
     if not ret: break
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    if prev is None:
-        prev = gray
+    if roi_flag:
+
+        circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 1, 300, param1=150, param2=50, minRadius=120, maxRadius=0)
+
+        if circles is not None and circles.all():
+            for i in circles[0]:
+                roi = [int(i[0] - i[2]), int(i[1] - i[2]), int(i[0] + i[2]), int(i[1] + i[2])]
+                center_of_roi = [(roi[0] + roi[2]) // 2, (roi[1] + roi[3]) // 2]
+                cv2.circle(frame, (int(i[0]), int(i[1])), int(i[2]), (255, 255, 255), 5)
+
+            roi_flag = False
+
     else:
+        gray = gray[roi[0]:roi[2], roi[1]:roi[3]]
+        if prev is None:
+            prev = gray
+        else:
 
-        '''
-        prev – first 8-bit single-channel input image.
-        next – second input image of the same size and the same type as prev.
-        flow – computed flow image that has the same size as prev and type CV_32FC2.
-        pyr_scale – parameter, specifying the image scale (<1) to build pyramids for each image; pyr_scale=0.5 means a classical pyramid, where each next layer is twice smaller than the previous one.
-        levels – number of pyramid layers including the initial image; levels=1 means that no extra layers are created and only the original images are used.
-        winsize – averaging window size; larger values increase the algorithm robustness to image noise and give more chances for fast motion detection, but yield more blurred motion field.
-        iterations – number of iterations the algorithm does at each pyramid level.
-        poly_n – size of the pixel neighborhood used to find polynomial expansion in each pixel; larger values mean that the image will be approximated with smoother surfaces, yielding more robust algorithm and more blurred motion field, typically poly_n =5 or 7.
-        poly_sigma – standard deviation of the Gaussian that is used to smooth derivatives used as a basis for the polynomial expansion; for poly_n=5, you can set poly_sigma=1.1, for poly_n=7, a good value would be poly_sigma=1.5.
-        '''
-        flow = cv2.calcOpticalFlowFarneback(prev, gray, flow=0.5,
-                                            pyr_scale=0.5,
-                                            levels=3,
-                                            winsize=10,
-                                            iterations=7,
-                                            poly_n=13,
-                                            poly_sigma=1.1,
-                                            flags=cv2.OPTFLOW_FARNEBACK_GAUSSIAN)
+            '''
+            prev – first 8-bit single-channel input image.
+            next – second input image of the same size and the same type as prev.
+            flow – computed flow image that has the same size as prev and type CV_32FC2.
+            pyr_scale – parameter, specifying the image scale (<1) to build pyramids for each image; pyr_scale=0.5 means a classical pyramid, where each next layer is twice smaller than the previous one.
+            levels – number of pyramid layers including the initial image; levels=1 means that no extra layers are created and only the original images are used.
+            winsize – averaging window size; larger values increase the algorithm robustness to image noise and give more chances for fast motion detection, but yield more blurred motion field.
+            iterations – number of iterations the algorithm does at each pyramid level.
+            poly_n – size of the pixel neighborhood used to find polynomial expansion in each pixel; larger values mean that the image will be approximated with smoother surfaces, yielding more robust algorithm and more blurred motion field, typically poly_n =5 or 7.
+            poly_sigma – standard deviation of the Gaussian that is used to smooth derivatives used as a basis for the polynomial expansion; for poly_n=5, you can set poly_sigma=1.1, for poly_n=7, a good value would be poly_sigma=1.5.
+            '''
+            flow = cv2.calcOpticalFlowFarneback(prev, gray, flow=0.5,
+                                                pyr_scale=0.5,
+                                                levels=3,
+                                                winsize=10,
+                                                iterations=7,
+                                                poly_n=13,
+                                                poly_sigma=1.1,
+                                                flags=cv2.OPTFLOW_FARNEBACK_GAUSSIAN)
 
-        drawFlow(frame, flow)
-        prev = gray
+            drawFlow(frame, flow, filtering=True)
+            prev = gray
 
     cv2.imshow('OpticalFlow-Farneback', frame)
     if cv2.waitKey(delay) == 27:
