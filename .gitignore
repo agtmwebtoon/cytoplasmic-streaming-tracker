@@ -1,4 +1,8 @@
 .idea/
 dataset/
 new_dataset/
+processed/
+preprocessed/
+raw_data/
+
 

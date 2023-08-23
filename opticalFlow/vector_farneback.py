@@ -2,25 +2,28 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.neighbors import KernelDensity
-import scienceplots
-plt.style.use(['science','ieee'])
+#import scienceplots
+#plt.style.use(['science','ieee'])
 
 first_flag = True
 roi_flag = True
 length = 0
 prev = None
 
-cap = cv2.VideoCapture("../dataset/IT283501l_25_50fps_binning2_sample4(2).avi")
+frame_idx = 0
+cap = cv2.VideoCapture("../raw_data/IT283501l_25_50fps_binning2_sample4(2).avi")
 fps = cap.get(cv2.CAP_PROP_FPS)
 delay = int(1000 / fps)
 roi = [0, 0, 0, 0]
 center_of_roi = [0, 0]
 transposed_pos = [0, 0]
 mask = np.nan
-
+first_flag_cnt = 0
 
 def drawFlow(img, flow, step=1, filtering=False):
-    global min_dist
+    global min_dist, frame_idx
+    plot_img = None
+
     h, w = flow.shape[:2]
 
     idx_y, idx_x = np.mgrid[step / 2:h:step, step / 2:w:step].astype(int)
@@ -37,12 +40,15 @@ def drawFlow(img, flow, step=1, filtering=False):
             # x += transposed_pos[0]
             # y += transposed_pos[1]
             cv2.circle(img, (x, y), 1, (0, 255, 0), -1)
-            cv2.arrowedLine(img, (x, y), (x + dx, y + dy), (0, 255, 0), 1, cv2.LINE_AA)
+            plot_img = cv2.arrowedLine(img, (x, y), (x + dx, y + dy), (0, 255, 0), 1, cv2.LINE_AA)
+
 
         elif filtering is False:
             cv2.circle(img, (x, y), 1, (0, 255, 0), -1)
             cv2.arrowedLine(img, (x, y), (x + dx, y + dy), (0, 255, 0), 1, cv2.LINE_AA)
 
+    #plt.imsave(f'../processed/with_gaussian/farneback{frame_idx}.png', plot_img)
+    frame_idx += 1
 
 def masking_circle(unmask_frame):
     result_image = cv2.bitwise_and(unmask_frame, unmask_frame, mask=mask)
@@ -51,13 +57,13 @@ def masking_circle(unmask_frame):
 
 
 def find_optical_distance(pixel_dist, percent, pixel_size):
-    global first_flag
+    global first_flag, first_flag_cnt
     dists = []
     for i in range(pixel_size):
         for j in range(pixel_size):
             dists.append(np.sqrt(pixel_dist[i][j][0] ** 2 + pixel_dist[i][j][1] ** 2))
 
-    if first_flag:
+    if first_flag and False:
         plt.plot(dists)
         dists = np.array(dists).reshape(-1, 1)
         plt.show()
@@ -81,7 +87,7 @@ def find_optical_distance(pixel_dist, percent, pixel_size):
         plt.legend()
         plt.grid(True)
         plt.show()
-
+        first_flag_cnt += 1
     return np.percentile(dists, percent)
 
 
@@ -93,7 +99,7 @@ while cap.isOpened():
 
     if roi_flag:
 
-        circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 1, 300, param1=150, param2=50, minRadius=0, maxRadius=0)
+        circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 1, 500, param1=100, param2=100, minRadius=100, maxRadius=400)
 
         if circles is not None and circles.all():
             for i in circles[0]:
@@ -107,6 +113,14 @@ while cap.isOpened():
                 mask = cv2.circle(mask, (int(i[0]), int(i[1])), int(i[2]) - 20, (255, 255, 255), -1)
 
                 masked_image = masking_circle(gray)
+
+                '''
+                FOR DEBUG
+                '''
+                #cv2.imshow('OpticalFlow-Farneback1', masked_image)
+                #if cv2.waitKey(delay) == 27:
+                #    break
+
             roi_flag = False
 
     else:
@@ -115,6 +129,7 @@ while cap.isOpened():
             prev = masking_circle(gray)
         else:
             gray = masking_circle(gray)
+            gray = cv2.GaussianBlur(gray, (13, 13), 8)
             '''
             prev – first 8-bit single-channel input image.
             next – second input image of the same size and the same type as prev.
@@ -135,7 +150,7 @@ while cap.isOpened():
                                                 poly_sigma=1.1,
                                                 flags=cv2.OPTFLOW_FARNEBACK_GAUSSIAN)
 
-            drawFlow(frame, flow, step=2, filtering=True)
+            drawFlow(frame, flow, step=1, filtering=True)
             prev = gray
 
     cv2.imshow('OpticalFlow-Farneback', frame)
