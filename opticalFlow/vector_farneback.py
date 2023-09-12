@@ -1,9 +1,18 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
+
 from sklearn.neighbors import KernelDensity
-#import scienceplots
-#plt.style.use(['science','ieee'])
+
+'''
+GRAPH CONFIGURATION
+'''
+sns.set_theme(style='whitegrid')
+# import scienceplots
+# plt.style.use(['science','ieee'])
+
+
 
 first_flag = True
 roi_flag = True
@@ -20,6 +29,9 @@ transposed_pos = [0, 0]
 mask = np.nan
 first_flag_cnt = 0
 
+flow_frame = []
+
+
 def drawFlow(img, flow, step=1, filtering=False):
     global min_dist, frame_idx
     plot_img = None
@@ -30,7 +42,7 @@ def drawFlow(img, flow, step=1, filtering=False):
     indicies = np.stack((idx_x, idx_y), axis=-1).reshape(-1, 2)
 
     if filtering:
-        min_dist = find_optical_distance(flow, 99.5, h)
+        min_dist = find_optical_distance(flow, 0, h)
         print(min_dist)
         pass
     for x, y in indicies:
@@ -47,13 +59,47 @@ def drawFlow(img, flow, step=1, filtering=False):
             cv2.circle(img, (x, y), 1, (0, 255, 0), -1)
             cv2.arrowedLine(img, (x, y), (x + dx, y + dy), (0, 255, 0), 1, cv2.LINE_AA)
 
-    #plt.imsave(f'../processed/with_gaussian/farneback{frame_idx}.png', plot_img)
+    # plt.imsave(f'../processed/with_gaussian/farneback{frame_idx}.png', plot_img)
     frame_idx += 1
+
 
 def masking_circle(unmask_frame):
     result_image = cv2.bitwise_and(unmask_frame, unmask_frame, mask=mask)
 
     return result_image
+
+
+def visualizae_flow(flows):
+    diags_x = []
+    diags_y = []
+    diags = []
+
+    for flow in flows:
+        diag = []
+        y = flow[:, :, 0]
+        x = flow[:, :, 1]
+
+        for i in range(len(y)):
+
+            angle = np.arctan2(y[i][i], x[i][i])
+            if angle != 0:
+                diag.append(angle)
+
+        diags.append(diag)
+
+        ax = sns.histplot(x=diag,
+                          color='r',  ## 색상
+                          bins=30,  ## bin 개수
+                          kde=True,  ## 밀도 함수 곡선 추가
+                          element='step',  ## 히스토그램 표시형식,
+                          stat='percent',  ## y값 계산 방식 count
+                          cumulative=False,  ## True인 경우 누적 분포 형태로 그림
+                          )
+
+        plt.show()
+
+
+
 
 
 def find_optical_distance(pixel_dist, percent, pixel_size):
@@ -63,12 +109,13 @@ def find_optical_distance(pixel_dist, percent, pixel_size):
         for j in range(pixel_size):
             dists.append(np.sqrt(pixel_dist[i][j][0] ** 2 + pixel_dist[i][j][1] ** 2))
 
-    if first_flag and False:
+    if first_flag < 5 and True:
         plt.plot(dists)
         dists = np.array(dists).reshape(-1, 1)
         plt.show()
 
         first_flag = False
+
         kde = KernelDensity(bandwidth=1, kernel='gaussian')
         kde.fit(dists)
 
@@ -91,7 +138,9 @@ def find_optical_distance(pixel_dist, percent, pixel_size):
     return np.percentile(dists, percent)
 
 
-while cap.isOpened():
+test_idx = 0
+
+while cap.isOpened() and test_idx < 10:
 
     ret, frame = cap.read()
     if not ret: break
@@ -99,7 +148,8 @@ while cap.isOpened():
 
     if roi_flag:
 
-        circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 1, 500, param1=100, param2=100, minRadius=100, maxRadius=400)
+        circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 1, 500, param1=100, param2=100, minRadius=100,
+                                   maxRadius=400)
 
         if circles is not None and circles.all():
             for i in circles[0]:
@@ -117,8 +167,8 @@ while cap.isOpened():
                 '''
                 FOR DEBUG
                 '''
-                #cv2.imshow('OpticalFlow-Farneback1', masked_image)
-                #if cv2.waitKey(delay) == 27:
+                # cv2.imshow('OpticalFlow-Farneback1', masked_image)
+                # if cv2.waitKey(delay) == 27:
                 #    break
 
             roi_flag = False
@@ -129,7 +179,7 @@ while cap.isOpened():
             prev = masking_circle(gray)
         else:
             gray = masking_circle(gray)
-            gray = cv2.GaussianBlur(gray, (13, 13), 8)
+            gray = cv2.GaussianBlur(gray, (13, 13), 16)
             '''
             prev – first 8-bit single-channel input image.
             next – second input image of the same size and the same type as prev.
@@ -150,12 +200,18 @@ while cap.isOpened():
                                                 poly_sigma=1.1,
                                                 flags=cv2.OPTFLOW_FARNEBACK_GAUSSIAN)
 
-            drawFlow(frame, flow, step=1, filtering=True)
+            drawFlow(frame, flow, step=2, filtering=True)
+
+            flow_frame.append(flow)
+
             prev = gray
 
     cv2.imshow('OpticalFlow-Farneback', frame)
     if cv2.waitKey(delay) == 27:
         break
 
+    test_idx += 1
+
+visualizae_flow(flows=flow_frame)
 cap.release()
 cv2.destroyAllWindows()

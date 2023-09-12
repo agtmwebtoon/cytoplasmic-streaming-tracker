@@ -1,7 +1,7 @@
 import cv2
 
 # Path to the TIF image file
-tif_file_path = 'dataset/IT229148/IT229148_25_50fps_binning2_sample3(1).tif'
+tif_file_path = 'raw_data/IT283501l_25_50fps_binning2_sample2(1).tif'
 
 # Open the TIF image as a 'video'
 cap = cv2.VideoCapture(tif_file_path)
@@ -22,7 +22,7 @@ while True:
     cv2.imshow('TIF Frame', frame)
 
     # Press 'q' to exit the loop
-    if cv2.waitKey(10) & 0xFF == ord('q'):
+    if cv2.waitKey(10):
         break
 
 # Release the TIF file capture object and close any open windows
