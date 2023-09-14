@@ -32,14 +32,14 @@ first_flag_cnt = 0
 flow_frame = []
 
 # Path to the tiff file
-path = "../dataset/IT229148/IT229148_25_50fps_binning2_sample3(3).tif"
+path = "../raw_data/IT283501/IT283501l_25_50fps_binning2_sample4(2).tif"
 
 # List to store the loaded image
 images = []
 
 ret, images = cv2.imreadmulti(mats=images,
                               filename=path,
-                              flags=cv2.IMREAD_ANYCOLOR)
+                              flags=cv2.IMREAD_GRAYSCALE)
 
 idx = 0
 
@@ -56,10 +56,12 @@ def drawFlow(img, flow, step=1, filtering=False):
 
     if filtering:
         min_dist = find_optical_distance(flow, 0, h)
+        min_dist = 0
         print(min_dist)
 
     for x, y in indicies:
         dy, dx = flow[y, x].astype(int)
+
         if filtering and np.sqrt(dx ** 2 + dy ** 2) > min_dist:
             # print(min_dist)
             # x += transposed_pos[0]
@@ -73,7 +75,8 @@ def drawFlow(img, flow, step=1, filtering=False):
             cv2.arrowedLine(img, (x, y), (x + dx, y + dy), (0, 255, 0), 1, cv2.LINE_AA)
 
     if plot_img is not None:
-        plt.imsave(f'../processed/with_gaussian/farneback{frame_idx}.png', plot_img)
+        plt.imsave(f'../processed/with_gaussian/0913/farneback{frame_idx}.png', plot_img)
+
     frame_idx += 1
 
 
@@ -153,18 +156,28 @@ test_idx = 0
 
 for image in images:
 
+    '''
+    Image Contrast Calculation
+    '''
+    image = cv2.add(image, 200)
+    image = cv2.normalize(image, None, 0, 255, cv2.NORM_MINMAX)
+
     frame = image
     gray = frame
 
     if roi_flag:
 
-        circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 1, 100, param1=70, param2=35, minRadius=100,
+        #circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 1, 100, param1=70, param2=35, minRadius=100,
+        #                           maxRadius=400)
+
+        circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 1, 500, param1=100, param2=100, minRadius=100,
                                    maxRadius=400)
+
 
         if circles is not None and circles.all():
             for i in circles[0]:
                 # roi => (x_1, y_1), (x_2, y_2)
-                i[2] = i[2] * 0.9
+                i[2] = i[2]
                 roi = [int(i[0] - i[2]), int(i[1] - i[2]), int(i[0] + i[2]), int(i[1] + i[2])]
                 center_of_roi = [(roi[0] + roi[2]) // 2, (roi[1] + roi[3]) // 2]
 
@@ -181,7 +194,9 @@ for image in images:
                 cv2.imshow('OpticalFlow-Farneback1', masked_image)
                 if cv2.waitKey() == 27:
                     break
-
+                '''
+                '''
+                break
             roi_flag = False
 
     else:
@@ -190,7 +205,8 @@ for image in images:
             prev = masking_circle(gray)
         else:
             gray = masking_circle(gray)
-            gray = cv2.GaussianBlur(gray, (11, 11), 8)
+            gray = cv2.GaussianBlur(gray, (0, 0), 2.0)
+
             '''
             prev – first 8-bit single-channel input image.
             next – second input image of the same size and the same type as prev.

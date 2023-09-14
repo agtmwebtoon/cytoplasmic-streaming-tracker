@@ -20,7 +20,7 @@ length = 0
 prev = None
 
 frame_idx = 0
-cap = cv2.VideoCapture("../dataset/IT283501l_25_50fps_binning2_sample4(2).avi")
+cap = cv2.VideoCapture("../raw_data/IT158314_25_50fps_binning2_sample1(3).avi")
 fps = cap.get(cv2.CAP_PROP_FPS)
 delay = int(1000 / fps)
 roi = [0, 0, 0, 0]
@@ -59,7 +59,7 @@ def drawFlow(img, flow, step=1, filtering=False):
             cv2.circle(img, (x, y), 1, (0, 255, 0), -1)
             cv2.arrowedLine(img, (x, y), (x + dx, y + dy), (0, 255, 0), 1, cv2.LINE_AA)
 
-    # plt.imsave(f'../processed/with_gaussian/farneback{frame_idx}.png', plot_img)
+    plt.imsave(f'../processed/with_gaussian/farneback{frame_idx}.png', plot_img)
     frame_idx += 1
 
 
@@ -109,7 +109,9 @@ def find_optical_distance(pixel_dist, percent, pixel_size):
         for j in range(pixel_size):
             dists.append(np.sqrt(pixel_dist[i][j][0] ** 2 + pixel_dist[i][j][1] ** 2))
 
-    if first_flag < 5 and True:
+    plt.plot(dists)
+    plt.show()
+    if first_flag < 5 and False:
         plt.plot(dists)
         dists = np.array(dists).reshape(-1, 1)
         plt.show()
@@ -140,7 +142,7 @@ def find_optical_distance(pixel_dist, percent, pixel_size):
 
 test_idx = 0
 
-while cap.isOpened() and test_idx < 10:
+while cap.isOpened():
 
     ret, frame = cap.read()
     if not ret: break
@@ -179,7 +181,8 @@ while cap.isOpened() and test_idx < 10:
             prev = masking_circle(gray)
         else:
             gray = masking_circle(gray)
-            gray = cv2.GaussianBlur(gray, (13, 13), 16)
+            gray = cv2.GaussianBlur(gray, (0, 0), 2)
+
             '''
             prev – first 8-bit single-channel input image.
             next – second input image of the same size and the same type as prev.
