@@ -33,7 +33,7 @@ flow_frame = []
 
 grad_dists = []
 # Path to the tiff file
-path = "../raw_data/IT283501/IT283501l_25_50fps_binning2_sample4(2).tif"
+path = "../dataset/Basil/Basil_5_50fps_binning2_sample2(1).tif"
 
 # List to store the loaded image
 images = []
