@@ -31,6 +31,7 @@ first_flag_cnt = 0
 
 flow_frame = []
 
+grad_dists = []
 # Path to the tiff file
 path = "../raw_data/IT283501/IT283501l_25_50fps_binning2_sample4(2).tif"
 
@@ -43,7 +44,7 @@ ret, images = cv2.imreadmulti(mats=images,
 
 idx = 0
 
-images = images[330:]
+images = images[495:]
 
 def drawFlow(img, flow, step=1, filtering=False):
     global min_dist, frame_idx
@@ -122,6 +123,8 @@ def find_optical_distance(pixel_dist, percent, pixel_size):
     for i in range(pixel_size):
         for j in range(pixel_size):
             dists.append(np.sqrt(pixel_dist[i][j][0] ** 2 + pixel_dist[i][j][1] ** 2))
+
+    grad_dists.append(np.average(dists))
 
     if first_flag < 5 and False:
         plt.plot(dists)
@@ -239,5 +242,7 @@ for image in images:
 
     test_idx += 1
 
+plt.plot(grad_dists[1:])
+plt.show()
 visualizae_flow(flows=flow_frame)
 cv2.destroyAllWindows()
