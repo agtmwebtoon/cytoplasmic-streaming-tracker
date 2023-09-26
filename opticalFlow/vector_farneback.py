@@ -20,7 +20,7 @@ length = 0
 prev = None
 
 frame_idx = 0
-cap = cv2.VideoCapture("../raw_data/IT158314_25_50fps_binning2_sample1(3).avi")
+cap = cv2.VideoCapture("../raw_data/selected/IT283501l_25_50fps_binning2_sample4(2).avi")
 fps = cap.get(cv2.CAP_PROP_FPS)
 delay = int(1000 / fps)
 roi = [0, 0, 0, 0]
@@ -148,6 +148,8 @@ while cap.isOpened():
     if not ret: break
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
+    plt.imshow(gray)
+    plt.show()
     if roi_flag:
 
         circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 1, 500, param1=100, param2=100, minRadius=100,

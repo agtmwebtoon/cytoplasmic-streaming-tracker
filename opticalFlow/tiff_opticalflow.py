@@ -33,7 +33,7 @@ flow_frame = []
 
 grad_dists = []
 # Path to the tiff file
-path = "../dataset/Basil/Basil_5_50fps_binning2_sample2(1).tif"
+path = "../raw_data/Basil/Basil_15_50fps_binning2_sample2(4).tif"
 
 # List to store the loaded image
 images = []
@@ -44,9 +44,10 @@ ret, images = cv2.imreadmulti(mats=images,
 
 idx = 0
 
-images = images[495:]
+images = images[::5]
 
-def drawFlow(img, flow, step=1, filtering=False):
+
+def drawFlow(img, flow, step=1, filtering=True, save_data=False):
     global min_dist, frame_idx
     plot_img = None
 
@@ -56,8 +57,7 @@ def drawFlow(img, flow, step=1, filtering=False):
     indicies = np.stack((idx_x, idx_y), axis=-1).reshape(-1, 2)
 
     if filtering:
-        min_dist = find_optical_distance(flow, 0, h)
-        min_dist = 0
+        min_dist = find_optical_distance(flow, 99.5, h)
         print(min_dist)
 
     for x, y in indicies:
@@ -75,7 +75,7 @@ def drawFlow(img, flow, step=1, filtering=False):
             cv2.circle(img, (x, y), 1, (0, 255, 0), -1)
             cv2.arrowedLine(img, (x, y), (x + dx, y + dy), (0, 255, 0), 1, cv2.LINE_AA)
 
-    if plot_img is not None:
+    if plot_img is not None and save_data is not False:
         plt.imsave(f'../processed/with_gaussian/0913/farneback{frame_idx}.png', plot_img)
 
     frame_idx += 1
@@ -124,7 +124,13 @@ def find_optical_distance(pixel_dist, percent, pixel_size):
         for j in range(pixel_size):
             dists.append(np.sqrt(pixel_dist[i][j][0] ** 2 + pixel_dist[i][j][1] ** 2))
 
-    grad_dists.append(np.average(dists))
+    dists = np.array(dists)
+    percentile = np.percentile(dists, percent)
+    filtered_dist = dists[dists >= percentile]
+
+    grad_dists.append(np.average(filtered_dist))
+    plt.plot(dists)
+    plt.show()
 
     if first_flag < 5 and False:
         plt.plot(dists)
@@ -152,7 +158,7 @@ def find_optical_distance(pixel_dist, percent, pixel_size):
         plt.grid(True)
         plt.show()
         first_flag_cnt += 1
-    return np.percentile(dists, percent)
+    return percentile
 
 
 test_idx = 0
@@ -165,22 +171,23 @@ for image in images:
     image = cv2.add(image, 200)
     image = cv2.normalize(image, None, 0, 255, cv2.NORM_MINMAX)
 
+    #plt.imshow(image)
+    #plt.show()
     frame = image
-    gray = frame
+    gray = frame[:]
 
     if roi_flag:
 
-        #circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 1, 100, param1=70, param2=35, minRadius=100,
+        # circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 1, 100, param1=70, param2=35, minRadius=100,
         #                           maxRadius=400)
 
         circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 1, 500, param1=100, param2=100, minRadius=100,
                                    maxRadius=400)
 
-
         if circles is not None and circles.all():
             for i in circles[0]:
                 # roi => (x_1, y_1), (x_2, y_2)
-                i[2] = i[2]
+                i[2] = i[2] * 0.9
                 roi = [int(i[0] - i[2]), int(i[1] - i[2]), int(i[0] + i[2]), int(i[1] + i[2])]
                 center_of_roi = [(roi[0] + roi[2]) // 2, (roi[1] + roi[3]) // 2]
 
@@ -208,7 +215,11 @@ for image in images:
             prev = masking_circle(gray)
         else:
             gray = masking_circle(gray)
-            gray = cv2.GaussianBlur(gray, (0, 0), 2.0)
+            #gray = cv2.GaussianBlur(gray, (0, 0), 2.0)
+
+            cv2.imshow('asd', gray)
+            if cv2.waitKey(10) == 27:
+                break
 
             '''
             prev – first 8-bit single-channel input image.
@@ -230,7 +241,7 @@ for image in images:
                                                 poly_sigma=1.1,
                                                 flags=cv2.OPTFLOW_FARNEBACK_GAUSSIAN)
 
-            drawFlow(frame, flow, step=1, filtering=True)
+            drawFlow(frame, flow, step=2, filtering=True)
 
             flow_frame.append(flow)
 
